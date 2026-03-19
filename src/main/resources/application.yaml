@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: SemanticWarcSearch
+  # Disable web server (command-line app only)
+  main:
+    web-application-type: none
+
+# Solr
+solr:
+  base-url: http://localhost:8983/solr
