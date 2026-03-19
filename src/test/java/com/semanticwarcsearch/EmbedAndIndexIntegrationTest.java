@@ -19,6 +19,7 @@ import org.testcontainers.utility.MountableFile;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -71,9 +72,9 @@ class EmbedAndIndexIntegrationTest {
     }
 
     /**
-     * Streams 5 documents from Solr, embeds their {@code content} field via Ollama,
-     * writes the resulting vectors back as atomic updates, then verifies that every
-     * document has a non-null {@code content_as_vector} field.
+     * Streams documents from Solr, generates dense embeddings via Ollama for each one,
+     * and writes vectors back as atomic updates — all as a single lazy stream pipeline
+     * with no intermediate list materialisations.
      */
     @Test
     void streamEmbedAndIndexVectors() throws SolrServerException, IOException {
@@ -93,26 +94,18 @@ class EmbedAndIndexIntegrationTest {
         }
         solrClient.commit(COLLECTION);
 
-        // --- 2. Stream the 5 documents back via SolrRepository ---
-        List<WarcDocument> docs;
+        // --- 2. Stream → embed → atomic-update as a single pipeline (no intermediate lists) ---
         try (SolrRepository<WarcDocument> repo = new SolrRepository<>(solrUrl, COLLECTION, WarcDocument.class)) {
-            docs = repo.stream(new SolrQuery("id:(embed-0 embed-1 embed-2 embed-3 embed-4)"), 10).toList();
-        }
-        assertEquals(5, docs.size(), "should stream exactly 5 documents");
-
-        // --- 3. Embed all content values in a single batch call ---
-        List<String> texts = docs.stream().map(WarcDocument::getContent).toList();
-        List<float[]> vectors = embeddingService.embedAll(texts);
-        assertEquals(docs.size(), vectors.size(), "one vector per document");
-
-        // --- 4. Atomic-update the content_as_vector field for each document ---
-        try (SolrRepository<Object> repo = new SolrRepository<>(solrUrl, COLLECTION, Object.class)) {
-            for (int i = 0; i < docs.size(); i++) {
-                repo.atomicUpdate(docs.get(i).getId(), Map.of("content_as_vector", vectors.get(i)));
-            }
+            Stream<Map.Entry<String, Map<String, Object>>> updates =
+                    repo.stream(new SolrQuery("id:(embed-0 embed-1 embed-2 embed-3 embed-4)"), 10)
+                        .map(doc -> Map.entry(
+                                doc.getId(),
+                                Map.<String, Object>of("content_as_vector",
+                                        embeddingService.embed(doc.getContent()))));
+            repo.atomicUpdateAll(updates);
         }
 
-        // --- 5. Verify every document now has a populated content_as_vector field ---
+        // --- 3. Verify every document now has a populated content_as_vector field ---
         QueryResponse response = solrClient.query(
                 COLLECTION,
                 new SolrQuery("id:(embed-0 embed-1 embed-2 embed-3 embed-4)").setRows(10)

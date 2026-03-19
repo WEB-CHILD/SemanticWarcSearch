@@ -4,6 +4,7 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Spring service that delegates text embedding to a locally-running
@@ -57,5 +58,17 @@ public class EmbeddingService {
      */
     public List<float[]> embedAll(List<String> texts) {
         return embeddingModel.embed(texts);
+    }
+
+    /**
+     * Returns a lazy {@link Stream} of embedding vectors, one per input text.
+     * Documents are embedded one at a time as the stream is consumed, so the full
+     * corpus never needs to be materialised in memory.
+     *
+     * @param texts stream of input texts; must not be null
+     * @return stream of float arrays in the same order as the input
+     */
+    public Stream<float[]> embedStream(Stream<String> texts) {
+        return texts.map(this::embed);
     }
 }

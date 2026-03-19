@@ -75,6 +75,39 @@ public class SolrRepository<T> implements Closeable {
      */
     public void atomicUpdate(String id, Map<String, Object> fieldUpdates)
             throws SolrServerException, IOException {
+        solrClient.add(collection, buildUpdateDoc(id, fieldUpdates));
+        solrClient.commit(collection);
+    }
+
+    /**
+     * Applies atomic updates for every entry in {@code updates} and issues a single
+     * commit at the end, which is far more efficient than committing after each document.
+     *
+     * <p>The stream is consumed lazily: documents are fetched, embedded, and sent to
+     * Solr one by one without ever materialising the full set in memory.
+     *
+     * @param updates stream of (document-id, field-updates) pairs
+     */
+    public void atomicUpdateAll(Stream<Map.Entry<String, Map<String, Object>>> updates)
+            throws SolrServerException, IOException {
+        try {
+            updates.forEach(entry -> {
+                try {
+                    solrClient.add(collection, buildUpdateDoc(entry.getKey(), entry.getValue()));
+                } catch (SolrServerException | IOException e) {
+                    throw new RuntimeException("Failed to add atomic update for id " + entry.getKey(), e);
+                }
+            });
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof SolrServerException se) throw se;
+            if (e.getCause() instanceof IOException ioe) throw ioe;
+            throw e;
+        }
+        solrClient.commit(collection);
+    }
+
+    /** Builds a {@link SolrInputDocument} for an atomic partial update. */
+    private static SolrInputDocument buildUpdateDoc(String id, Map<String, Object> fieldUpdates) {
         SolrInputDocument doc = new SolrInputDocument();
         doc.addField("id", id);
         for (Map.Entry<String, Object> entry : fieldUpdates.entrySet()) {
@@ -86,8 +119,7 @@ public class SolrRepository<T> implements Closeable {
             }
             doc.addField(entry.getKey(), Map.of("set", value));
         }
-        solrClient.add(collection, doc);
-        solrClient.commit(collection);
+        return doc;
     }
 
     /**
