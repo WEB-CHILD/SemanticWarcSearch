@@ -20,4 +20,4 @@ jobs:
           java-version: 21
 
       - name: Build & run tests
-        run: mvn clean test
+        run: mvn clean test -ntp
