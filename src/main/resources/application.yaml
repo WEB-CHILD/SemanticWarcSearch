@@ -4,6 +4,11 @@ spring:
   # Disable web server (command-line app only)
   main:
     web-application-type: none
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      embedding:
+        model: qwen3-embedding:0.6B   # or another relevant embedding model available in your Ollama instance
 
 # Solr
 solr:
