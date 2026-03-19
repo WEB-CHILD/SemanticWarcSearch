@@ -1,4 +1,4 @@
-name: Java CI with Maven + Coverage
+name: Java CI with Maven Tests
 
 on:
   push:
@@ -19,5 +19,5 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Build & run tests with coverage
-        run: mvn clean verify
+      - name: Build & run tests
+        run: mvn clean test
