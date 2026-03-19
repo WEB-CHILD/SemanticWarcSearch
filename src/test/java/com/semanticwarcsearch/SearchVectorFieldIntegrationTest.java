@@ -113,9 +113,9 @@ class SearchVectorFieldIntegrationTest {
     }
 
     /**
-     * Streams documents from Solr, generates dense embeddings via Ollama for each one,
-     * and writes vectors back as atomic updates — all as a single lazy stream pipeline
-     * with no intermediate list materialisations.
+     * Embeds a natural-language query string via Ollama and performs a KNN vector search
+     * against the {@code content_as_vector} field, returning the single closest document
+     * in the embedding space and printing both the query and the matched content.
      */
     @Test
     void queryVectors() throws SolrServerException, IOException {
