@@ -20,4 +20,4 @@ jobs:
           java-version: 21
 
       - name: Build & run tests
-        run: mvn clean test -ntp -Dexclude="**/*IntegrationTest.java"
+        run: mvn clean test -ntp -Dtest='!*IntegrationTest'
