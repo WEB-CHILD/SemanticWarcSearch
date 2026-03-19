@@ -70,7 +70,12 @@ class SearchVectorFieldIntegrationTest {
                 "Dense vector search enables semantic retrieval over large corpora.",
                 "WARC files store raw HTTP exchanges captured during web crawls.",
                 "Solr supports approximate nearest-neighbour search via DenseVectorField.",
-                "Ollama runs large language models locally without cloud dependencies."
+                "Ollama runs large language models locally without cloud dependencies.",
+                "Jeg er en dreng på 12 år, og jeg elsker at spille fodbold med mine venner i parken hver weekend.", 
+                "Mine favoritfodboldspillere er Lionel Messi og Cristiano Ronaldo, fordi de er utroligt dygtige og har inspireret mig til at blive bedre.",
+                "Mine hobbier er at male og læse og ridde på min hest på ridderskolen, hvor jeg lærer om heste og får masser af frisk luft.",
+                "Jeg går i 6. klasse og mine yndlingsfag er matematik og historie",
+                "I am a boy, 12 years old, and I love playing football with my friends in the park every weekend."
         );
         for (int i = 0; i < contents.size(); i++) {
             SolrInputDocument doc = new SolrInputDocument();
@@ -83,7 +88,7 @@ class SearchVectorFieldIntegrationTest {
         // --- 2. Stream → embed → atomic-update as a single pipeline (no intermediate lists) ---
         try (SolrRepository<WarcDocument> repo = new SolrRepository<>(solrUrl, COLLECTION, WarcDocument.class)) {
             Stream<Map.Entry<String, Map<String, Object>>> updates =
-                    repo.stream(new SolrQuery("id:(embed-0 embed-1 embed-2 embed-3 embed-4)"), 10)
+                    repo.stream(new SolrQuery("*:*"), 10)
                         .map(doc -> Map.entry(
                                 doc.getId(),
                                 Map.<String, Object>of("content_as_vector",
@@ -119,7 +124,7 @@ class SearchVectorFieldIntegrationTest {
      */
     @Test
     void queryVectors() throws SolrServerException, IOException {
-        String queryText = "How are web pages preserved for the future?";
+        String queryText = "Mine favoritfodboldspillere er Lionel Messi og Cristiano Ronaldo, fordi de er utroligt dygtige og har inspireret mig til at blive bedre.";
         float[] queryVector = embeddingService.embed(queryText);
 
         try (SolrRepository<WarcDocument> repo = new SolrRepository<>(solrUrl, COLLECTION, WarcDocument.class)) {
