@@ -1,8 +1,10 @@
 package com.semanticwarcsearch;
 
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
+import org.apache.solr.client.solrj.request.QueryRequest;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrInputDocument;
@@ -181,6 +183,35 @@ public class SolrRepository<T> implements Closeable {
 
         return StreamSupport.stream(
                 Spliterators.spliteratorUnknownSize(iterator, ORDERED | NONNULL), false);
+    }
+
+    /**
+     * Performs a KNN (k-nearest-neighbour) vector search against a
+     * {@code DenseVectorField}.
+     *
+     * @param queryVector the dense query vector (dimension must match the field definition)
+     * @param vectorField name of the {@code DenseVectorField} to search
+     * @param topK        maximum number of nearest neighbours to return
+     * @return list of closest documents ordered by similarity; may be shorter than
+     *         {@code topK} when the index contains fewer documents
+     */
+    public List<T> searchByVector(float[] queryVector, String vectorField, int topK)
+            throws SolrServerException, IOException {
+        String knnParser = "{!knn f=" + vectorField + " topK=" + topK + "}" + formatVector(queryVector);
+        SolrQuery knnQuery = new SolrQuery(knnParser).setRows(topK);
+        QueryRequest request = new QueryRequest(knnQuery, SolrRequest.METHOD.POST);
+        QueryResponse response = request.process(solrClient, collection);
+        return response.getBeans(type);
+    }
+
+    /** Formats a float array as a Solr dense-vector literal, e.g. {@code [0.1,0.2,...]}. */
+    private static String formatVector(float[] vector) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < vector.length; i++) {
+            if (i > 0) sb.append(',');
+            sb.append(vector[i]);
+        }
+        return sb.append(']').toString();
     }
 
     @Override
