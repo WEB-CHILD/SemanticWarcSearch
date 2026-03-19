@@ -13,9 +13,9 @@
   <!--
     Dense vector field for KNN / semantic search.
     vectorDimension must match the embedding model output (e.g. 768 for BERT-base,
-    384 for all-MiniLM-L6-v2). Set to 128 here for lightweight test usage.
+    384 for all-MiniLM-L6-v2). Set to 1024 here for lightweight test usage.
   -->
-  <field name="dense_vector" type="knn_vector"   indexed="true"  stored="true"/>
+  <field name="content_as_vector" type="knn_vector" indexed="true"  stored="true"/>
 
   <uniqueKey>id</uniqueKey>
 
@@ -35,7 +35,7 @@
   <!-- Dense vector field type — adjust vectorDimension to match your embedding model -->
   <fieldType name="knn_vector"
              class="solr.DenseVectorField"
-             vectorDimension="128"
+             vectorDimension="1024"
              similarityFunction="cosine"/>
 
 </schema>

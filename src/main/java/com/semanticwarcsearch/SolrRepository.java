@@ -78,7 +78,13 @@ public class SolrRepository<T> implements Closeable {
         SolrInputDocument doc = new SolrInputDocument();
         doc.addField("id", id);
         for (Map.Entry<String, Object> entry : fieldUpdates.entrySet()) {
-            doc.addField(entry.getKey(), Map.of("set", entry.getValue()));
+            Object value = entry.getValue();
+            if (value instanceof float[] floats) {
+                List<Float> list = new java.util.ArrayList<>(floats.length);
+                for (float f : floats) list.add(f);
+                value = list;
+            }
+            doc.addField(entry.getKey(), Map.of("set", value));
         }
         solrClient.add(collection, doc);
         solrClient.commit(collection);

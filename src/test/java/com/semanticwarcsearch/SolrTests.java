@@ -162,6 +162,31 @@ class SolrTests {
         }
     }
 
+    /** Verifies that {@link SolrRepository#atomicUpdate} correctly stores a {@code float[]} embedding vector in a {@code knn_vector} field. */
+    @Test
+    void atomicUpdateOfGeneratedVector() throws SolrServerException, IOException {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.addField("id", "4");
+        doc.addField("content", "Test content for vector update");
+
+        solrClient.add(COLLECTION, doc);
+        solrClient.commit(COLLECTION);
+
+        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getSolrPort() + "/solr";
+        try (SolrRepository<Object> repo = new SolrRepository<>(solrUrl, COLLECTION, Object.class)) {
+            // Simulate embedding generation and atomic update of the vector field
+            float[] dummyVector = new float[1024]; // Must match vectorDimension in schema.xml
+            repo.atomicUpdate("4", Map.of("content_as_vector", dummyVector));
+        }
+
+        QueryResponse response = solrClient.query(COLLECTION, new SolrQuery("id:4"));
+        SolrDocumentList results = response.getResults();
+
+        assertFalse(results.isEmpty());
+        Object vectorValue = results.get(0).getFieldValue("content_as_vector");
+        assertNotNull(vectorValue);
+    }
+
     private static SolrInputDocument docWithContent(String id, String content) {
         SolrInputDocument doc = new SolrInputDocument();
         doc.addField("id", id);

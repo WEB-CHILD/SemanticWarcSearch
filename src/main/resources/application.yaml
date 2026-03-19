@@ -8,7 +8,7 @@ spring:
     ollama:
       base-url: http://localhost:11434
       embedding:
-        model: qwen3-embedding:0.6B   # or another relevant embedding model available in your Ollama instance
+        model: qwen3-embedding:0.6B   # This standard one has 1024 dimensions. Please check your solr schema.xml for same value for the field type you are indexing to.
 
 # Solr
 solr:
