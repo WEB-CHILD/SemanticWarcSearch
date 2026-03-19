@@ -7,8 +7,8 @@
   <field name="_version_"    type="plong"        indexed="false" stored="false"/>
 
   <!-- Content fields -->
-  <field name="title"        type="text_general" indexed="true"  stored="true"/>
-  <field name="content"      type="text_general" indexed="true"  stored="true"/>
+  <field name="title"        type="text_general" indexed="true"  stored="true"  multiValued="false"/>
+  <field name="content"      type="text_general" indexed="true"  stored="true"  multiValued="false"/>
 
   <!--
     Dense vector field for KNN / semantic search.

@@ -8,3 +8,4 @@ spring:
 # Solr
 solr:
   base-url: http://localhost:8983/solr
+  collection: warc

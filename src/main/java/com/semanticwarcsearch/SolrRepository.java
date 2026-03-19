@@ -6,11 +6,21 @@ import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.params.CursorMarkParams;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Spliterators;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+import static java.util.Spliterator.NONNULL;
+import static java.util.Spliterator.ORDERED;
 
 /**
  * Generic Solr repository providing typed query and atomic update operations
@@ -72,6 +82,67 @@ public class SolrRepository<T> implements Closeable {
         }
         solrClient.add(collection, doc);
         solrClient.commit(collection);
+    }
+
+    /**
+     * Returns a lazy {@link Stream} over all documents matching the given query,
+     * fetched from Solr in batches using cursor mark (deep-pagination) to avoid
+     * memory pressure on large indexes.
+     *
+     * <p>The query <em>must</em> include a sort on the unique key field (e.g.
+     * {@code sort=id asc}); this method appends {@code id asc} automatically if
+     * no sort is present.
+     *
+     * @param baseQuery  the Solr query to execute (rows controls the batch size)
+     * @param batchSize  number of documents fetched per round-trip
+     * @return lazy stream of documents; close the stream when done to avoid leaks
+     */
+    public Stream<T> stream(SolrQuery baseQuery, int batchSize) {
+        baseQuery.setRows(batchSize);
+        if (baseQuery.getSortField() == null || baseQuery.getSortField().isEmpty()) {
+            baseQuery.addSort("id", SolrQuery.ORDER.asc);
+        }
+
+        Iterator<T> iterator = new Iterator<>() {
+            private String cursorMark = CursorMarkParams.CURSOR_MARK_START;
+            private List<T> batch = Collections.emptyList();
+            private int batchIndex = 0;
+            private boolean exhausted = false;
+
+            @Override
+            public boolean hasNext() {
+                if (batchIndex < batch.size()) return true;
+                if (exhausted) return false;
+                fetchNextBatch();
+                return batchIndex < batch.size();
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) throw new NoSuchElementException();
+                return batch.get(batchIndex++);
+            }
+
+            private void fetchNextBatch() {
+                try {
+                    baseQuery.set(CursorMarkParams.CURSOR_MARK_PARAM, cursorMark);
+                    QueryResponse response = solrClient.query(collection, baseQuery);
+                    String nextCursorMark = response.getNextCursorMark();
+                    batch = response.getBeans(type);
+                    batchIndex = 0;
+                    if (nextCursorMark.equals(cursorMark) || batch.isEmpty()) {
+                        exhausted = true;
+                    } else {
+                        cursorMark = nextCursorMark;
+                    }
+                } catch (SolrServerException | IOException e) {
+                    throw new RuntimeException("Failed to fetch next batch from Solr", e);
+                }
+            }
+        };
+
+        return StreamSupport.stream(
+                Spliterators.spliteratorUnknownSize(iterator, ORDERED | NONNULL), false);
     }
 
     @Override

@@ -3,9 +3,7 @@ package com.semanticwarcsearch;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.request.SolrQuery;
-import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.QueryResponse;
-import org.apache.solr.client.solrj.response.schema.SchemaResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.AfterAll;
@@ -28,14 +26,15 @@ class SolrTests {
     @SuppressWarnings("resource")
     static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9"))
             .withCopyFileToContainer(MountableFile.forClasspathResource("solr/testcore"),
-                                    "/opt/solr/server/solr/configsets/testcore")
-            .withCollection(COLLECTION);
+                                    "/opt/solr/server/solr/configsets/testcore");
 
     private static HttpJdkSolrClient solrClient;    
 
     @BeforeAll
-    static void setUp() {
+    static void setUp() throws Exception {
         solrContainer.start();
+        // Create core with the custom configset (withCollection uses _default)
+        solrContainer.execInContainer("solr", "create_core", "-c", COLLECTION, "-d", COLLECTION);
         String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getSolrPort() + "/solr";
         solrClient = new HttpJdkSolrClient.Builder(solrUrl).build();
     }
@@ -119,5 +118,54 @@ class SolrTests {
         } else {
             assertEquals("Updated Title", titleValue);
         }
+    }
+
+    /** Verifies that {@link SolrRepository#stream} returns all matching documents. */
+    @Test
+    void streamReturnsAllDocuments() throws SolrServerException, IOException {
+        solrClient.add(COLLECTION, docWithContent("10", "Stream doc A"));
+        solrClient.add(COLLECTION, docWithContent("11", "Stream doc B"));
+        solrClient.add(COLLECTION, docWithContent("12", "Stream doc C"));
+        solrClient.commit(COLLECTION);
+
+        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getSolrPort() + "/solr";
+        try (SolrRepository<WarcDocument> repo = new SolrRepository<>(solrUrl, COLLECTION, WarcDocument.class)) {
+            List<WarcDocument> results = repo.stream(new SolrQuery("id:10  OR id:11  OR id:12"), 10).toList();
+            assertEquals(3, results.size());
+            assertTrue(results.stream().map(WarcDocument::getId).toList().containsAll(List.of("10", "11", "12")));
+        }
+    }
+
+    /** Verifies that {@link SolrRepository#stream} paginates correctly when batchSize is smaller than total results. */
+    @Test
+    void streamPaginatesAcrossMultipleBatches() throws SolrServerException, IOException {
+        for (int i = 20; i < 25; i++) {
+            solrClient.add(COLLECTION, docWithContent(String.valueOf(i), "Batch doc " + i));
+        }
+        solrClient.commit(COLLECTION);
+
+        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getSolrPort() + "/solr";
+        try (SolrRepository<WarcDocument> repo = new SolrRepository<>(solrUrl, COLLECTION, WarcDocument.class)) {
+            // batchSize=2 forces 3 round-trips for 5 documents
+            List<WarcDocument> results = repo.stream(new SolrQuery("id:(20 21 22 23 24)"), 2).toList();
+            assertEquals(5, results.size());
+        }
+    }
+
+    /** Verifies that {@link SolrRepository#stream} returns an empty stream when no documents match. */
+    @Test
+    void streamReturnsEmptyStreamWhenNoDocumentsMatch() throws IOException {
+        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getSolrPort() + "/solr";
+        try (SolrRepository<WarcDocument> repo = new SolrRepository<>(solrUrl, COLLECTION, WarcDocument.class)) {
+            List<WarcDocument> results = repo.stream(new SolrQuery("id:nonexistent-doc-xyz"), 10).toList();
+            assertTrue(results.isEmpty());
+        }
+    }
+
+    private static SolrInputDocument docWithContent(String id, String content) {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.addField("id", id);
+        doc.addField("content", content);
+        return doc;
     }
 }
