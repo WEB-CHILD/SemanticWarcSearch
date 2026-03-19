@@ -3,7 +3,9 @@ package com.semanticwarcsearch;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.request.SolrQuery;
+import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.schema.SchemaResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.AfterAll;
@@ -11,20 +13,25 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SolrTests {
 
-    private static final String COLLECTION = "testcollection";
+    private static final String COLLECTION = "testcore";
 
+    @SuppressWarnings("resource")
     static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9"))
+            .withCopyFileToContainer(MountableFile.forClasspathResource("solr/testcore"),
+                                    "/opt/solr/server/solr/configsets/testcore")
             .withCollection(COLLECTION);
 
-    private static HttpJdkSolrClient solrClient;
+    private static HttpJdkSolrClient solrClient;    
 
     @BeforeAll
     static void setUp() {
@@ -51,6 +58,7 @@ class SolrTests {
         SolrInputDocument doc = new SolrInputDocument();
         doc.addField("id", "1");
         doc.addField("title", "Test Document");
+        doc.addField("content", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.");
 
         solrClient.add(COLLECTION, doc);
         solrClient.commit(COLLECTION);

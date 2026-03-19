@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+  <luceneMatchVersion>9.0</luceneMatchVersion>
+
+  <!-- Use classic schema.xml instead of managed schema -->
+  <schemaFactory class="ClassicIndexSchemaFactory"/>
+
+  <directoryFactory name="DirectoryFactory"
+                    class="${solr.directoryFactory:solr.NRTCachingDirectoryFactory}"/>
+
+  <codecFactory class="solr.SchemaCodecFactory"/>
+
+  <indexConfig>
+    <lockType>${solr.lock.type:native}</lockType>
+  </indexConfig>
+
+  <updateHandler class="solr.DirectUpdateHandler2">
+    <updateLog>
+      <str name="dir">${solr.ulog.dir:}</str>
+    </updateLog>
+  </updateHandler>
+
+  <query>
+    <maxBooleanClauses>${solr.max.booleanClauses:1024}</maxBooleanClauses>
+    <filterCache size="512" initialSize="512" autowarmCount="0"/>
+    <queryResultCache size="512" initialSize="512" autowarmCount="0"/>
+    <documentCache size="512" initialSize="512" autowarmCount="0"/>
+    <enableLazyFieldLoading>true</enableLazyFieldLoading>
+    <queryResultWindowSize>20</queryResultWindowSize>
+    <queryResultMaxDocsCached>200</queryResultMaxDocsCached>
+    <useColdSearcher>false</useColdSearcher>
+  </query>
+
+  <requestDispatcher>
+    <httpCaching never304="true"/>
+  </requestDispatcher>
+
+  <requestHandler name="/select" class="solr.SearchHandler">
+    <lst name="defaults">
+      <str name="echoParams">explicit</str>
+      <int name="rows">10</int>
+    </lst>
+  </requestHandler>
+
+  <requestHandler name="/update" class="solr.UpdateRequestHandler"/>
+
+  <requestHandler name="/admin/ping" class="solr.PingRequestHandler">
+    <lst name="invariants">
+      <str name="q">solrpingquery</str>
+    </lst>
+    <lst name="defaults">
+      <str name="echoParams">all</str>
+    </lst>
+  </requestHandler>
+
+</config>

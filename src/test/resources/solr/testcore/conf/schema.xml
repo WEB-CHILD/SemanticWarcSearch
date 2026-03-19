@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<schema name="testcore" version="1.6">
+
+  <!-- Unique document identifier -->
+  <field name="id"           type="string"       indexed="true"  stored="true"  required="true"/>
+  <!-- Required by Solr for optimistic concurrency and atomic updates -->
+  <field name="_version_"    type="plong"        indexed="false" stored="false"/>
+
+  <!-- Content fields -->
+  <field name="title"        type="text_general" indexed="true"  stored="true"/>
+  <field name="content"      type="text_general" indexed="true"  stored="true"/>
+
+  <!--
+    Dense vector field for KNN / semantic search.
+    vectorDimension must match the embedding model output (e.g. 768 for BERT-base,
+    384 for all-MiniLM-L6-v2). Set to 128 here for lightweight test usage.
+  -->
+  <field name="dense_vector" type="knn_vector"   indexed="true"  stored="true"/>
+
+  <uniqueKey>id</uniqueKey>
+
+  <!-- ===================== Field types ===================== -->
+
+  <fieldType name="string" class="solr.StrField" sortMissingLast="true"/>
+
+  <fieldType name="plong" class="solr.LongPointField" docValues="true"/>
+
+  <fieldType name="text_general" class="solr.TextField" positionIncrementGap="100">
+    <analyzer>
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+
+  <!-- Dense vector field type — adjust vectorDimension to match your embedding model -->
+  <fieldType name="knn_vector"
+             class="solr.DenseVectorField"
+             vectorDimension="128"
+             similarityFunction="cosine"/>
+
+</schema>
